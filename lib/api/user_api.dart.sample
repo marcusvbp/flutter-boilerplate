@@ -1,0 +1,10 @@
+import 'package:dio/dio.dart';
+import 'package:flutterboilerplate/app_config.dart';
+
+class UserApi {
+  final String token;
+  final Dio http;
+  UserApi(this.token) : http = AppConfig.getDioInstance(token: token);
+
+  Future<Response> getUserList() => http.get('/user/list');
+}

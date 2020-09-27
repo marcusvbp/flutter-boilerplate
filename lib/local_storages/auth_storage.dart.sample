@@ -1,0 +1,24 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+class AuthStorage {
+  Future<void> saveAuth(Map auth) async {
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    await pref.setString('auth', jsonEncode(auth));
+  }
+
+  Future<Map> getAuth() async {
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    var auth = await pref.get('auth');
+    if (auth != null) {
+      return jsonDecode(auth);
+    }
+    return null;
+  }
+
+  Future<void> removeAuth() async {
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    await pref.setString('auth', null);
+  }
+}

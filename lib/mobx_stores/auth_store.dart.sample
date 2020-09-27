@@ -1,0 +1,112 @@
+import 'package:flutterboilerplate/models/user_model.dart';
+import 'package:mobx/mobx.dart';
+import 'package:flutterboilerplate/local_storage/auth_storage.dart';
+import 'package:flutterboilerplate/api/auth_api.dart';
+
+part 'auth_store.g.dart';
+
+class AuthStore = AuthBase with _$AuthStore;
+
+abstract class AuthBase with Store {
+  @observable
+  String bearer;
+
+  @observable
+  User loggedUser;
+
+  @observable
+  int loginAt = 0;
+
+  @observable
+  int expiresAt = 0;
+
+  @observable
+  bool isLoading = false;
+
+  @observable
+  bool isAuthenticated = false;
+
+  @action
+  Future<void> rehydrate() async {
+    try {
+      AuthStorage storage = AuthStorage();
+      isLoading = true;
+      var auth = await storage.getAuth();
+      if (auth != null) {
+        isAuthenticated = true;
+        var user = auth['user'];
+        if (user != null) {
+          loggedUser = User.fromJson(user);
+        }
+        saveSession(auth['access_token'], auth['expires_in']);
+        loginAt = auth['login_at'];
+      }
+      isLoading = false;
+    } catch (e) {
+      isLoading = false;
+      isAuthenticated = false;
+      print(e);
+      throw e;
+    }
+  }
+
+  @action
+  Future<void> login(String email, String password) async {
+    try {
+      AuthApi api = AuthApi();
+      AuthStorage storage = AuthStorage();
+      isLoading = true;
+      var res = await api.login(email, password);
+      var data = res.data;
+      await storage.saveAuth(data);
+      saveSession(data['access_token'], data['expires_in']);
+      loggedUser = User.fromJson(data['user']);
+      isAuthenticated = true;
+      isLoading = false;
+    } catch (e) {
+      isLoading = false;
+      isAuthenticated = false;
+      throw e;
+    }
+  }
+
+  @action
+  void saveSession(String accessToken, int expiresAt) {
+    loginAt =
+        Duration(milliseconds: DateTime.now().millisecondsSinceEpoch).inSeconds;
+    expiresAt = expiresAt;
+    bearer = accessToken;
+  }
+
+  @action
+  void saveUser(Map userData) => loggedUser = User.fromJson(userData);
+
+  @action
+  void expireSession() {
+    try {
+      var now = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch)
+          .inSeconds;
+      if (now - loginAt >= expiresAt) logout();
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  @action
+  Future<void> logout() async {
+    try {
+      AuthStorage storage = AuthStorage();
+      isLoading = true;
+      await storage.removeAuth();
+      bearer = null;
+      loggedUser = null;
+      expiresAt = 0;
+      isLoading = false;
+      loginAt = 0;
+      isAuthenticated = false;
+    } catch (e) {
+      isLoading = false;
+      throw e;
+    }
+  }
+}
